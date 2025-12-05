@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"io"
 	"net/http"
@@ -45,17 +43,6 @@ var GlobalData = struct {
 	data: make(map[string][]byte),
 }
 
-func getSHA256Hash(data string) string {
-	// Create a new SHA256 hasher
-	hasher := sha256.New()
-
-	// Write the string data (converted to bytes) to the hasher
-	hasher.Write([]byte(data))
-
-	// Get the finalized hash as a byte slice and encode it to a hexadecimal string
-	return hex.EncodeToString(hasher.Sum(nil))
-}
-
 //TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
 // the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
 
@@ -92,7 +79,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	GlobalData.RLock()
-	val := GlobalData.data[getSHA256Hash(token+":"+service+hostname)]
+	val := GlobalData.data[token+":"+service+hostname]
 	GlobalData.RUnlock()
 	w.Header().Add(headerContentType, mimeJson)
 	_, _ = w.Write(val)
@@ -106,7 +93,7 @@ func request(logger *zap.Logger, collector string, serviceKey string, hostname s
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	logger.Info("requesting setting from", zap.String("collector", collector), zap.String("serviceName", serviceName), zap.String("hostname", hostname))
+	logger.Info("requesting setting", zap.String("collector", collector), zap.String("serviceName", serviceName), zap.String("hostname", hostname))
 	req, err := http.NewRequest("GET", "https://"+collector+"/v1/settings/"+serviceName+"/"+hostname, nil)
 	if err != nil {
 		logger.Error("unable to create request", zap.Error(err))
@@ -134,9 +121,9 @@ func request(logger *zap.Logger, collector string, serviceKey string, hostname s
 	if err != nil {
 		logger.Error("failed to read response body", zap.Error(err))
 	}
-
+	logger.Info("request completed", zap.Int("status", resp.StatusCode), zap.String("body", string(body)))
 	GlobalData.Lock()
-	GlobalData.data[getSHA256Hash(serviceKey+hostname)] = body
+	GlobalData.data[serviceKey+hostname] = body
 	GlobalData.Unlock()
 }
 
@@ -145,6 +132,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	collector, found := os.LookupEnv("SW_APM_COLLECTOR")
+	if !found {
+		logger.Fatal("SW_APM_COLLECTOR environment variable is not set")
+	}
 	serviceKey, found := os.LookupEnv("SW_APM_SERVICE_KEY")
 	if !found {
 		logger.Fatal("SW_APM_SERVICE_KEY environment variable is not set")
@@ -152,10 +143,6 @@ func main() {
 	hostname, found := os.LookupEnv("HOSTNAME")
 	if !found {
 		logger.Fatal("HOSTNAME environment variable is not set")
-	}
-	collector, found := os.LookupEnv("SW_APM_COLLECTOR")
-	if !found {
-		collector = "apm.collector.na-01.cloud.solarwinds.com"
 	}
 	port, found := os.LookupEnv("PORT")
 	if !found {
