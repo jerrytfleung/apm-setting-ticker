@@ -106,6 +106,7 @@ func request(logger *zap.Logger, collector string, serviceKey string, hostname s
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	logger.Info("requesting setting from", zap.String("collector", collector), zap.String("serviceName", serviceName), zap.String("hostname", hostname))
 	req, err := http.NewRequest("GET", "https://"+collector+"/v1/settings/"+serviceName+"/"+hostname, nil)
 	if err != nil {
 		logger.Error("unable to create request", zap.Error(err))
