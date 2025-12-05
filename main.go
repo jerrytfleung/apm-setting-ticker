@@ -148,9 +148,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	serviceKey, found := os.LookupEnv("SW_SERVICE_KEY")
+	serviceKey, found := os.LookupEnv("SW_APM_SERVICE_KEY")
 	if !found {
-		logger.Fatal("SW_SERVICE_KEY environment variable is not set")
+		logger.Fatal("SW_APM_SERVICE_KEY environment variable is not set")
 	}
 	collector, found := os.LookupEnv("SW_APM_COLLECTOR")
 	if !found {
