@@ -98,15 +98,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(val)
 }
 
-func request(logger *zap.Logger, collector string, serviceKey string) {
+func request(logger *zap.Logger, collector string, serviceKey string, hostname string) {
 	serviceName := "unknown"
 	keyArr := strings.Split(serviceKey, ":")
 	if len(keyArr) == 2 {
 		serviceName = keyArr[1]
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		logger.Error("unable to get hostname", zap.Error(err))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -152,6 +148,10 @@ func main() {
 	if !found {
 		logger.Fatal("SW_APM_SERVICE_KEY environment variable is not set")
 	}
+	hostname, found := os.LookupEnv("HOSTNAME")
+	if !found {
+		logger.Fatal("HOSTNAME environment variable is not set")
+	}
 	collector, found := os.LookupEnv("SW_APM_COLLECTOR")
 	if !found {
 		collector = "apm.collector.na-01.cloud.solarwinds.com"
@@ -174,7 +174,7 @@ func main() {
 	done := make(chan bool)
 
 	// Initial request before starting the ticker
-	request(logger, collector, serviceKey)
+	request(logger, collector, serviceKey, hostname)
 
 	// Launch a goroutine to handle the ticker events.
 	go func() {
@@ -185,7 +185,7 @@ func main() {
 				return
 			case <-ticker.C:
 				// On each tick, perform request.
-				request(logger, collector, serviceKey)
+				request(logger, collector, serviceKey, hostname)
 			}
 		}
 	}()
